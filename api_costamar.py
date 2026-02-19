@@ -41,7 +41,7 @@ def cotizar_vuelo():
             adultos=adultos,
             ninos=0,
             infantes=0,
-            top=5
+            top=None
         )
         
         if not vuelos:
@@ -68,4 +68,5 @@ if __name__ == '__main__':
     print("   • POST /api/cotizar")
     print("   • GET  /api/health")
     print("="*60 + "\n")
+
     app.run(host='0.0.0.0', port=5000, debug=True)
