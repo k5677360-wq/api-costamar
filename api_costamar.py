@@ -13,25 +13,35 @@ CIUDADES_A_IATA = {
     'puno': 'JUL', 'juliaca': 'JUL', 'tarapoto': 'TPP',
     'pucallpa': 'PCL', 'tumbes': 'TBP', 'puerto maldonado': 'PEM',
     'ayacucho': 'AYP', 'cajamarca': 'CJA', 'huanuco': 'HUU',
+    'jaén': 'JAE', 'talara': 'TYL',
     # Sudamérica
     'bogotá': 'BOG', 'bogota': 'BOG', 'medellín': 'MDE', 'medellin': 'MDE',
     'cali': 'CLO', 'cartagena': 'CTG', 'barranquilla': 'BAQ',
-    'santiago': 'SCL', 'buenos aires': 'EZE', 'córdoba': 'COR', 'cordoba': 'COR',
-    'mendoza': 'MDZ', 'rosario': 'ROS', 'salta': 'SLA',
+    'santiago': 'SCL', 'buenos aires': 'EZE',
+    'córdoba': 'COR', 'cordoba': 'COR', 'mendoza': 'MDZ',
+    'rosario': 'ROS', 'salta': 'SLA', 'tucumán': 'TUC',
+    'bariloche': 'BRC', 'ushuaia': 'USH',
     'quito': 'UIO', 'guayaquil': 'GYE',
     'são paulo': 'GRU', 'sao paulo': 'GRU', 'rio de janeiro': 'GIG',
     'brasilia': 'BSB', 'belo horizonte': 'CNF', 'florianopolis': 'FLN',
+    'porto alegre': 'POA', 'salvador': 'SSA', 'recife': 'REC',
+    'fortaleza': 'FOR', 'manaos': 'MAO',
     'montevideo': 'MVD', 'asuncion': 'ASU', 'asunción': 'ASU',
     'caracas': 'CCS', 'santa cruz': 'VVI', 'la paz': 'LPB',
+    'antofagasta': 'ANF', 'concepción': 'CCP',
+    'puerto montt': 'PMC', 'iquique': 'IQQ',
     # Norteamérica y Caribe
     'miami': 'MIA', 'nueva york': 'JFK', 'los ángeles': 'LAX', 'los angeles': 'LAX',
-    'orlando': 'MCO', 'ciudad de méxico': 'MEX', 'cancún': 'CUN', 'cancun': 'CUN',
+    'orlando': 'MCO', 'atlanta': 'ATL', 'houston': 'IAH',
+    'fort lauderdale': 'FLL', 'newark': 'EWR',
+    'ciudad de méxico': 'MEX', 'cancún': 'CUN', 'cancun': 'CUN',
     'punta cana': 'PUJ', 'san josé': 'SJO', 'san jose': 'SJO',
     'panama': 'PTY', 'panamá': 'PTY', 'curazao': 'CUR',
+    'san salvador': 'SAL', 'la habana': 'HAV',
     # Europa
     'madrid': 'MAD', 'barcelona': 'BCN', 'paris': 'CDG', 'parís': 'CDG',
-    'frankfurt': 'FRA', 'amsterdam': 'AMS', 'roma': 'FCO', 'milan': 'MXP',
-    'london': 'LHR', 'londres': 'LHR',
+    'frankfurt': 'FRA', 'amsterdam': 'AMS', 'roma': 'FCO',
+    'milan': 'MXP', 'london': 'LHR', 'londres': 'LHR',
 }
 
 def obtener_codigo_iata(ciudad):
@@ -92,4 +102,5 @@ if __name__ == '__main__':
     print("="*60 + "\n")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
