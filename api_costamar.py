@@ -6,10 +6,32 @@ app = Flask(__name__)
 CORS(app)
 
 CIUDADES_A_IATA = {
+    # Perú
     'lima': 'LIM', 'cusco': 'CUZ', 'cuzco': 'CUZ',
     'arequipa': 'AQP', 'iquitos': 'IQT', 'piura': 'PIU',
     'trujillo': 'TRU', 'chiclayo': 'CIX', 'tacna': 'TCQ',
-    'puno': 'JUL', 'juliaca': 'JUL'
+    'puno': 'JUL', 'juliaca': 'JUL', 'tarapoto': 'TPP',
+    'pucallpa': 'PCL', 'tumbes': 'TBP', 'puerto maldonado': 'PEM',
+    'ayacucho': 'AYP', 'cajamarca': 'CJA', 'huanuco': 'HUU',
+    # Sudamérica
+    'bogotá': 'BOG', 'bogota': 'BOG', 'medellín': 'MDE', 'medellin': 'MDE',
+    'cali': 'CLO', 'cartagena': 'CTG', 'barranquilla': 'BAQ',
+    'santiago': 'SCL', 'buenos aires': 'EZE', 'córdoba': 'COR', 'cordoba': 'COR',
+    'mendoza': 'MDZ', 'rosario': 'ROS', 'salta': 'SLA',
+    'quito': 'UIO', 'guayaquil': 'GYE',
+    'são paulo': 'GRU', 'sao paulo': 'GRU', 'rio de janeiro': 'GIG',
+    'brasilia': 'BSB', 'belo horizonte': 'CNF', 'florianopolis': 'FLN',
+    'montevideo': 'MVD', 'asuncion': 'ASU', 'asunción': 'ASU',
+    'caracas': 'CCS', 'santa cruz': 'VVI', 'la paz': 'LPB',
+    # Norteamérica y Caribe
+    'miami': 'MIA', 'nueva york': 'JFK', 'los ángeles': 'LAX', 'los angeles': 'LAX',
+    'orlando': 'MCO', 'ciudad de méxico': 'MEX', 'cancún': 'CUN', 'cancun': 'CUN',
+    'punta cana': 'PUJ', 'san josé': 'SJO', 'san jose': 'SJO',
+    'panama': 'PTY', 'panamá': 'PTY', 'curazao': 'CUR',
+    # Europa
+    'madrid': 'MAD', 'barcelona': 'BCN', 'paris': 'CDG', 'parís': 'CDG',
+    'frankfurt': 'FRA', 'amsterdam': 'AMS', 'roma': 'FCO', 'milan': 'MXP',
+    'london': 'LHR', 'londres': 'LHR',
 }
 
 def obtener_codigo_iata(ciudad):
@@ -70,3 +92,4 @@ if __name__ == '__main__':
     print("="*60 + "\n")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
+
