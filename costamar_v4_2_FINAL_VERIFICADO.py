@@ -134,7 +134,7 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
             "https://costamar.com.pe/vuelos/api/flights/search",
             json=payload,
             headers=HEADERS,
-            timeout=60
+            timeout=15
         )
         
         if response.status_code == 200:
