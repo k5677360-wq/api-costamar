@@ -1,6 +1,20 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from costamar_v4_2_FINAL_VERIFICADO import buscar_vuelos
+import hashlib, time as _time
+
+_cache = {}
+CACHE_TTL = 300  # 5 minutos
+
+def cache_get(key):
+    if key in _cache:
+        data, ts = _cache[key]
+        if _time.time() - ts < CACHE_TTL:
+            return data
+    return None
+
+def cache_set(key, data):
+    _cache[key] = (data, _time.time())
 
 app = Flask(__name__)
 CORS(app)
@@ -63,6 +77,13 @@ def cotizar_vuelo():
         if not codigo_origen or not codigo_destino:
             return jsonify({'success': False, 'error': 'Ciudad no encontrada'}), 400
         
+        # Caché — va AQUÍ, después de tener los códigos IATA
+        cache_key = hashlib.md5(f"{codigo_origen}{codigo_destino}{fecha_ida}{adultos}".encode()).hexdigest()
+        cached = cache_get(cache_key)
+        if cached:
+            print("⚡ Respuesta desde caché")
+            return jsonify(cached)
+        
         print(f"\n🔍 Buscando: {codigo_origen} → {codigo_destino} ({adultos} pasajeros)")
         
         vuelos = buscar_vuelos(
@@ -81,7 +102,11 @@ def cotizar_vuelo():
         
         print(f"✅ {len(vuelos)} vuelos encontrados")
         
-        return jsonify({'success': True, 'vuelos': vuelos})
+        # Guardar en caché antes de retornar
+        resultado = {'success': True, 'vuelos': vuelos}
+        cache_set(cache_key, resultado)
+        
+        return jsonify(resultado)
         
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -102,5 +127,6 @@ if __name__ == '__main__':
     print("="*60 + "\n")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
 
