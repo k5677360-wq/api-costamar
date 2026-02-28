@@ -1,9 +1,8 @@
-"""
+python"""
 ==========================================
 🔓 COSTAMAR SCRAPER v4 - OUTPUT PROFESIONAL
 ==========================================
 """
-
 import requests
 import json
 import time
@@ -33,6 +32,9 @@ HEADERS = {
     'Referer': 'https://booking.clickandbook.com/',
 }
 
+# Sesión persistente — AQUÍ, después de HEADERS
+_session = requests.Session()
+_session.headers.update(HEADERS)
 # Nombres de meses en español
 MESES = {
     '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
@@ -130,12 +132,11 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
     }
     
     try:
-        response = requests.post(
-            "https://costamar.com.pe/vuelos/api/flights/search",
-            json=payload,
-            headers=HEADERS,
-            timeout=15
-        )
+        response = _session.post(
+    "https://costamar.com.pe/vuelos/api/flights/search",
+    json=payload,
+    timeout=12
+)
         
         if response.status_code == 200:
             return response.json().get('data', [])
