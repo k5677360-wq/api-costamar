@@ -122,11 +122,11 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
     fecha_vuelta_iso = f"{fecha_vuelta[:4]}-{fecha_vuelta[4:6]}-{fecha_vuelta[6:]}T05:00:00.000Z" if fecha_vuelta else fecha_ida_iso
 
     # Inicializar sesión para obtener token de validación
-try:
-    _session.get("https://costamar.com.pe/vuelos", timeout=8)
-except Exception:
-    pass
-    
+    try:
+        _session.get("https://costamar.com.pe/vuelos", timeout=8)
+    except Exception:
+        pass
+
     payload = {
         "flightType": flight_type,
         "terminalId": terminal_id,
@@ -163,11 +163,11 @@ def extraer_precio(vuelo):
             # Prioridad: totalAmount > total > base+taxes
             # totalAmount suele ser numérico, total puede ser string
             if 'grandTotal' in pricing:
-    precio = convertir_a_numero(pricing['grandTotal'])
- elif 'totalAmount' in pricing:
-    precio = convertir_a_numero(pricing['totalAmount'])
-elif 'total' in pricing:
-    precio = convertir_a_numero(pricing['total'])
+                precio = convertir_a_numero(pricing['grandTotal'])
+            elif 'totalAmount' in pricing:
+                precio = convertir_a_numero(pricing['totalAmount'])
+            elif 'total' in pricing:
+                precio = convertir_a_numero(pricing['total'])
             # Fallback: sumar base + taxes si existen
             elif 'base' in pricing and 'taxes' in pricing:
                 base = convertir_a_numero(pricing['base'])
@@ -364,9 +364,9 @@ def buscar_vuelos(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, nino
     # Buscar
     print(f"\n   ⏳ Buscando vuelos...")
     vuelos_raw = []
-for tid in TERMINAL_IDS:
-    parcial = buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta, adultos, ninos, infantes, terminal_id=tid)
-    vuelos_raw.extend(parcial)
+    for tid in TERMINAL_IDS:
+        parcial = buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta, adultos, ninos, infantes, terminal_id=tid)
+        vuelos_raw.extend(parcial)
     
     if not vuelos_raw:
         print(f"   ❌ No se encontraron vuelos para esta ruta/fecha")
