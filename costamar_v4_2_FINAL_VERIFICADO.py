@@ -103,10 +103,10 @@ def convertir_a_numero(valor):
 # 🔧 FUNCIONES DE BÚSQUEDA
 # ==========================================
 
-def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0):
+def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0, terminal_id=None):
     """Llama a la API de Costamar"""
     
-    terminal_id = TERMINAL_IDS[0]  # fijo: Condor Travel
+   terminal_id = terminal_id or TERMINAL_IDS[0]  # fijo: Condor Travel
     
     if fecha_vuelta:
         flight_type = "RT"
@@ -120,6 +120,12 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
     
     fecha_ida_iso = f"{fecha_ida[:4]}-{fecha_ida[4:6]}-{fecha_ida[6:]}T05:00:00.000Z"
     fecha_vuelta_iso = f"{fecha_vuelta[:4]}-{fecha_vuelta[4:6]}-{fecha_vuelta[6:]}T05:00:00.000Z" if fecha_vuelta else fecha_ida_iso
+
+    # Inicializar sesión para obtener token de validación
+try:
+    _session.get("https://costamar.com.pe/vuelos", timeout=8)
+except Exception:
+    pass
     
     payload = {
         "flightType": flight_type,
@@ -128,7 +134,7 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
         "startDate": fecha_ida_iso,
         "endDate": fecha_vuelta_iso,
         "passengers": {"adults": adultos, "children": ninos, "infants": infantes},
-        "hasValidationToken": False
+        "hasValidationToken": True
     }
     
     try:
@@ -156,12 +162,12 @@ def extraer_precio(vuelo):
         if isinstance(pricing, dict):
             # Prioridad: totalAmount > total > base+taxes
             # totalAmount suele ser numérico, total puede ser string
-            if 'totalAmount' in pricing:
-                precio = convertir_a_numero(pricing['totalAmount'])
-            elif 'total' in pricing:
-                precio = convertir_a_numero(pricing['total'])
-            elif 'grandTotal' in pricing:
-                precio = convertir_a_numero(pricing['grandTotal'])
+            if 'grandTotal' in pricing:
+    precio = convertir_a_numero(pricing['grandTotal'])
+ elif 'totalAmount' in pricing:
+    precio = convertir_a_numero(pricing['totalAmount'])
+elif 'total' in pricing:
+    precio = convertir_a_numero(pricing['total'])
             # Fallback: sumar base + taxes si existen
             elif 'base' in pricing and 'taxes' in pricing:
                 base = convertir_a_numero(pricing['base'])
