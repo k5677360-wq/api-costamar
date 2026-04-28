@@ -69,6 +69,7 @@ def cotizar_vuelo():
         origen = data.get('origen', '')
         destino = data.get('destino', '')
         fecha_ida = data.get('fechaIda', '')
+        fecha_ida = fecha_ida.replace('-', '')  # convierte YYYY-MM-DD → YYYYMMDD
         adultos = int(data.get('adultos', 1))
         
         codigo_origen = obtener_codigo_iata(origen)
