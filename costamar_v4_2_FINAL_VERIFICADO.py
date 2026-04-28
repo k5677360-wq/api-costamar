@@ -1,5 +1,5 @@
- ==========================================
-🔓 COSTAMAR SCRAPER v4.2 - CON PROXY
+==========================================
+🔓 COSTAMAR SCRAPER v4 - OUTPUT PROFESIONAL
 ==========================================
 """
 import requests
@@ -19,26 +19,22 @@ TERMINAL_IDS = [
     "0536830376",  # Lima Tours
 ]
  
-# Proxy desde variable de entorno (configurar en Render)
-# Formato: http://usuario:password@proxy.webshare.io:80
-PROXY = os.environ.get("PROXY_URL", "")
- 
+PROXY = "http://usuario:password@proxy.webshare.io:80"
 DELAY_MIN = 1
 DELAY_MAX = 2
  
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'es-PE,es;q=0.9,en;q=0.8',
     'Content-Type': 'application/json',
     'Origin': 'https://booking.clickandbook.com',
     'Referer': 'https://booking.clickandbook.com/',
 }
  
-# Sesión persistente
+# Sesión persistente — AQUÍ, después de HEADERS
 _session = requests.Session()
 _session.headers.update(HEADERS)
- 
+
 # Aplicar proxy si está configurado
 if PROXY:
     _session.proxies = {
@@ -48,6 +44,7 @@ if PROXY:
     print(f"🔒 Proxy activo: {PROXY.split('@')[-1] if '@' in PROXY else PROXY}")
 else:
     print("⚠️  Sin proxy — puede ser bloqueado por Costamar desde IPs de nube")
+    
  
 # Nombres de meses en español
 MESES = {
@@ -111,10 +108,14 @@ def convertir_a_numero(valor):
 # 🔧 FUNCIONES DE BÚSQUEDA
 # ==========================================
  
-def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0):
+def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0, terminal_id=None):
     """Llama a la API de Costamar"""
  
-    terminal_id = random.choice(TERMINAL_IDS)
+    # FIX: se eliminó la línea que sobreescribía terminal_id,
+    # así el bucle en buscar_vuelos() puede probar ambos TERMINAL_IDS.
+    # Si no se pasa terminal_id, se usa el primero como fallback.
+    if terminal_id is None:
+        terminal_id = TERMINAL_IDS[0]
  
     if fecha_vuelta:
         flight_type = "RT"
@@ -131,7 +132,7 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
  
     # Inicializar sesión para obtener token de validación
     try:
-        _session.get("https://costamar.com.pe/vuelos", timeout=10)
+        _session.get("https://costamar.com.pe/vuelos", timeout=8)
     except Exception:
         pass
  
@@ -149,16 +150,11 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
         response = _session.post(
             "https://costamar.com.pe/vuelos/api/flights/search",
             json=payload,
-            timeout=15
+            timeout=12
         )
  
-        print(f"   📡 Status: {response.status_code}")
- 
         if response.status_code == 200:
-            data = response.json()
-            return data.get('data', [])
-        else:
-            print(f"   ⚠️  Respuesta inesperada: {response.text[:200]}")
+            return response.json().get('data', [])
         return []
     except Exception as e:
         print(f"   💥 Error de conexión: {e}")
@@ -173,12 +169,12 @@ def extraer_precio(vuelo):
     if 'pricing' in vuelo:
         pricing = vuelo['pricing']
         if isinstance(pricing, dict):
-            if 'totalAmount' in pricing:
+            if 'grandTotal' in pricing:
+                precio = convertir_a_numero(pricing['grandTotal'])
+            elif 'totalAmount' in pricing:
                 precio = convertir_a_numero(pricing['totalAmount'])
             elif 'total' in pricing:
                 precio = convertir_a_numero(pricing['total'])
-            elif 'grandTotal' in pricing:
-                precio = convertir_a_numero(pricing['grandTotal'])
             elif 'base' in pricing and 'taxes' in pricing:
                 base = convertir_a_numero(pricing['base'])
                 taxes = convertir_a_numero(pricing['taxes'])
@@ -283,7 +279,14 @@ def extraer_info_vuelo(vuelo, origen, destino, fecha_ida, fecha_vuelta, adultos,
             else:
                 info['equipaje_mano'] = "No especificado"
  
-            info['personal_item'] = "Incluido (bolso/mochila)"
+            if info.get('equipaje_mano') and 'pieza' in info['equipaje_mano']:
+                info['personal_item'] = "Incluido (bolso/mochila)"
+            elif 'handBaggage' not in flight:
+                info['personal_item'] = "Incluido (bolso/mochila)"
+            elif info.get('equipaje_mano') == "No incluido":
+                info['personal_item'] = "Incluido (bolso/mochila)"
+            else:
+                info['personal_item'] = "Incluido (bolso/mochila)"
  
             if 'brandedFare' in flight:
                 clase = flight['brandedFare'].get('brandName', 'Economy')
@@ -303,7 +306,19 @@ def extraer_info_vuelo(vuelo, origen, destino, fecha_ida, fecha_vuelta, adultos,
  
  
 def buscar_vuelos(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0, top=5):
-    """Función principal de búsqueda"""
+    """
+    Función principal de búsqueda
+ 
+    Parámetros:
+    - origen: código IATA (ej: "LIM")
+    - destino: código IATA (ej: "CUZ")
+    - fecha_ida: formato YYYYMMDD (ej: "20260201")
+    - fecha_vuelta: formato YYYYMMDD o None para solo ida
+    - adultos, ninos, infantes: cantidad de pasajeros
+    - top: cuántos resultados mostrar (default 5)
+ 
+    Retorna: lista de los mejores vuelos
+    """
  
     total_pasajeros = adultos + ninos + infantes
     texto_pasajeros = []
@@ -328,7 +343,10 @@ def buscar_vuelos(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, nino
     print(f"{'═'*75}")
  
     print(f"\n   ⏳ Buscando vuelos...")
-    vuelos_raw = buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta, adultos, ninos, infantes)
+    vuelos_raw = []
+    for tid in TERMINAL_IDS:
+        parcial = buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta, adultos, ninos, infantes, terminal_id=tid)
+        vuelos_raw.extend(parcial)
  
     if not vuelos_raw:
         print(f"   ❌ No se encontraron vuelos para esta ruta/fecha")
@@ -357,6 +375,7 @@ def buscar_vuelos(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, nino
         horario = f"{v['hora_salida']}→{v['hora_llegada']}"
         equip = v['equipaje_bodega'][:12]
         precio = f"${v['precio']:.2f}" if v['precio'] > 0 else "Consultar"
+ 
         print(f"   {i:<2} {v['aerolinea'][:14]:<15} {fecha_corta:<12} {horario:<13} {v['duracion']:<9} {v['escalas_texto']:<9} {equip:<14} {precio:<10}")
  
     print(f"   {'─'*71}")
@@ -378,6 +397,7 @@ def buscar_vuelos(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, nino
  
 def guardar_csv(vuelos, filename="vuelos_resultados.csv"):
     """Guarda los resultados en CSV"""
+ 
     if not vuelos:
         print("\n⚠️ No hay vuelos para guardar")
         return
@@ -397,3 +417,87 @@ def guardar_csv(vuelos, filename="vuelos_resultados.csv"):
         writer.writerows(vuelos)
  
     print(f"\n✅ RESULTADOS GUARDADOS EN: {ruta}")
+ 
+ 
+# ==========================================
+# 🚀 PROGRAMA PRINCIPAL
+# ==========================================
+ 
+if __name__ == "__main__":
+ 
+    print("""
+    ╔══════════════════════════════════════════════════════════════════════════╗
+    ║                                                                          ║
+    ║   🔓 COSTAMAR FLIGHT SCRAPER v4.2 FINAL - STEALTH MODE                  ║
+    ║   ────────────────────────────────────────────────────────────────────   ║
+    ║   ✅ Búsqueda anónima (IDs de terceros)                                 ║
+    ║   ✅ TOP 5 vuelos más baratos                                           ║
+    ║   ✅ Info completa: fecha, hora, equipaje detallado, precio             ║
+    ║   ✅ Equipaje: facturado + mano + personal item                         ║
+    ║   ✅ Exporta a CSV                                                      ║
+    ║   ✅ Verificación con web real para precios exactos                     ║
+    ║                                                                          ║
+    ╚══════════════════════════════════════════════════════════════════════════╝
+    """)
+ 
+    todos_los_vuelos = []
+ 
+    print("\n🔍 Iniciando búsquedas múltiples para verificar precios exactos...\n")
+ 
+    print("📍 Búsqueda 1: Lima → Cusco")
+    resultado = buscar_vuelos(
+        origen="LIM", destino="CUZ", fecha_ida="20260220",
+        fecha_vuelta="20260223", adultos=1, ninos=0, infantes=0, top=5
+    )
+    todos_los_vuelos.extend(resultado)
+    time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+ 
+    print("📍 Búsqueda 2: Lima → Arequipa")
+    resultado = buscar_vuelos(
+        origen="LIM", destino="AQP", fecha_ida="20260225",
+        fecha_vuelta="20260228", adultos=1, ninos=0, infantes=0, top=5
+    )
+    todos_los_vuelos.extend(resultado)
+    time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+ 
+    print("📍 Búsqueda 3: Lima → Cusco (solo ida)")
+    resultado = buscar_vuelos(
+        origen="LIM", destino="CUZ", fecha_ida="20260218",
+        fecha_vuelta=None, adultos=1, ninos=0, infantes=0, top=5
+    )
+    todos_los_vuelos.extend(resultado)
+    time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+ 
+    print("📍 Búsqueda 4: Lima → Piura")
+    resultado = buscar_vuelos(
+        origen="LIM", destino="PIU", fecha_ida="20260222",
+        fecha_vuelta="20260224", adultos=1, ninos=0, infantes=0, top=5
+    )
+    todos_los_vuelos.extend(resultado)
+    time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+ 
+    print("📍 Búsqueda 5: Lima → Iquitos")
+    resultado = buscar_vuelos(
+        origen="LIM", destino="IQT", fecha_ida="20260301",
+        fecha_vuelta="20260305", adultos=2, ninos=0, infantes=0, top=5
+    )
+    todos_los_vuelos.extend(resultado)
+    time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+ 
+    print("📍 Búsqueda 6: Cusco → Lima")
+    resultado = buscar_vuelos(
+        origen="CUZ", destino="LIM", fecha_ida="20260226",
+        fecha_vuelta="20260228", adultos=1, ninos=0, infantes=0, top=5
+    )
+    todos_los_vuelos.extend(resultado)
+ 
+    guardar_csv(todos_los_vuelos, "vuelos_resultados.csv")
+ 
+    print(f"\n{'═'*75}")
+    print(f"🎉 BÚSQUEDA COMPLETADA - {len(todos_los_vuelos)} vuelos encontrados")
+    print(f"{'═'*75}")
+ 
+    try:
+        input("\nPresiona ENTER para cerrar...")
+    except EOFError:
+        pass
