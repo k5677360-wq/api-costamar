@@ -2,23 +2,23 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from costamar_v4_2_FINAL_VERIFICADO import buscar_vuelos
 import hashlib, time as _time
-
+ 
 _cache = {}
 CACHE_TTL = 300  # 5 minutos
-
+ 
 def cache_get(key):
     if key in _cache:
         data, ts = _cache[key]
         if _time.time() - ts < CACHE_TTL:
             return data
     return None
-
+ 
 def cache_set(key, data):
     _cache[key] = (data, _time.time())
-
+ 
 app = Flask(__name__)
 CORS(app)
-
+ 
 CIUDADES_A_IATA = {
     # Perú
     'lima': 'LIM', 'cusco': 'CUZ', 'cuzco': 'CUZ',
@@ -57,66 +57,72 @@ CIUDADES_A_IATA = {
     'frankfurt': 'FRA', 'amsterdam': 'AMS', 'roma': 'FCO',
     'milan': 'MXP', 'london': 'LHR', 'londres': 'LHR',
 }
-
+ 
 def obtener_codigo_iata(ciudad):
     ciudad_limpia = ciudad.split(',')[0].strip().lower()
     return CIUDADES_A_IATA.get(ciudad_limpia)
-
+ 
 @app.route('/api/cotizar', methods=['POST'])
 def cotizar_vuelo():
     try:
         data = request.get_json()
-        origen = data.get('origen', '')
-        destino = data.get('destino', '')
+        origen   = data.get('origen', '')
+        destino  = data.get('destino', '')
         fecha_ida = data.get('fechaIda', '')
         fecha_ida = fecha_ida.replace('-', '')  # convierte YYYY-MM-DD → YYYYMMDD
-        adultos = int(data.get('adultos', 1))
-        
-        codigo_origen = obtener_codigo_iata(origen)
+ 
+        # FIX: leer ninos e infantes del request (antes quedaban fijos en 0)
+        adultos  = int(data.get('adultos', 1))
+        ninos    = int(data.get('ninos', 0))
+        infantes = int(data.get('infantes', 0))
+ 
+        codigo_origen  = obtener_codigo_iata(origen)
         codigo_destino = obtener_codigo_iata(destino)
-        
+ 
         if not codigo_origen or not codigo_destino:
             return jsonify({'success': False, 'error': 'Ciudad no encontrada'}), 400
-        
-        # Caché — va AQUÍ, después de tener los códigos IATA
-        cache_key = hashlib.md5(f"{codigo_origen}{codigo_destino}{fecha_ida}{adultos}".encode()).hexdigest()
+ 
+        # FIX: clave de caché incluye ninos e infantes para evitar mezclar resultados
+        cache_key = hashlib.md5(
+            f"{codigo_origen}{codigo_destino}{fecha_ida}{adultos}{ninos}{infantes}".encode()
+        ).hexdigest()
+ 
         cached = cache_get(cache_key)
         if cached:
             print("⚡ Respuesta desde caché")
             return jsonify(cached)
-        
-        print(f"\n🔍 Buscando: {codigo_origen} → {codigo_destino} ({adultos} pasajeros)")
-        
+ 
+        print(f"\n🔍 Buscando: {codigo_origen} → {codigo_destino} ({adultos}A {ninos}N {infantes}I)")
+ 
         vuelos = buscar_vuelos(
             origen=codigo_origen,
             destino=codigo_destino,
             fecha_ida=fecha_ida,
             fecha_vuelta=None,
             adultos=adultos,
-            ninos=0,
-            infantes=0,
+            ninos=ninos,
+            infantes=infantes,
             top=None
         )
-        
+ 
         if not vuelos:
             return jsonify({'success': False, 'error': 'No se encontraron vuelos'})
-        
+ 
         print(f"✅ {len(vuelos)} vuelos encontrados")
-        
-        # Guardar en caché antes de retornar
+ 
         resultado = {'success': True, 'vuelos': vuelos}
         cache_set(cache_key, resultado)
-        
+ 
         return jsonify(resultado)
-        
+ 
     except Exception as e:
         print(f"❌ Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
+ 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'OK'})
-
+ 
 if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 API COSTAMAR INICIADA")
@@ -126,8 +132,5 @@ if __name__ == '__main__':
     print("   • POST /api/cotizar")
     print("   • GET  /api/health")
     print("="*60 + "\n")
-
+ 
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-
-
