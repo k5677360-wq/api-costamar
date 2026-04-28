@@ -357,7 +357,10 @@ def buscar_vuelos(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, nino
     
     # Buscar
     print(f"\n   ⏳ Buscando vuelos...")
-    vuelos_raw = buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta, adultos, ninos, infantes)
+    vuelos_raw = []
+for tid in TERMINAL_IDS:
+    parcial = buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta, adultos, ninos, infantes, terminal_id=tid)
+    vuelos_raw.extend(parcial)
     
     if not vuelos_raw:
         print(f"   ❌ No se encontraron vuelos para esta ruta/fecha")
