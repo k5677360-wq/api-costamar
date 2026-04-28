@@ -106,7 +106,7 @@ def convertir_a_numero(valor):
 def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0):
     """Llama a la API de Costamar"""
     
-    terminal_id = random.choice(TERMINAL_IDS)
+    terminal_id = TERMINAL_IDS[0]  # fijo: Condor Travel
     
     if fecha_vuelta:
         flight_type = "RT"
