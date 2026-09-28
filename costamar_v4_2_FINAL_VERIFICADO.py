@@ -106,7 +106,10 @@ def convertir_a_numero(valor):
 def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0):
     """Llama a la API de Costamar"""
     
-    terminal_id = random.choice(TERMINAL_IDS)
+    # Permite probar una terminal vigente desde Render sin editar el código ni
+    # volver a publicar un identificador operativo. Si no se define, conserva
+    # el comportamiento histórico.
+    terminal_id = os.getenv('COSTAMAR_TERMINAL_ID') or random.choice(TERMINAL_IDS)
     
     if fecha_vuelta:
         flight_type = "RT"
@@ -138,8 +141,25 @@ def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, 
     timeout=12
 )
         
+        # Antes se ocultaba cualquier rechazo o cambio de contrato como una
+        # búsqueda vacía. Conservamos la salida pública, pero dejamos evidencia
+        # acotada en los logs de Render para poder corregir la integración.
+        print(f"[COSTAMAR] terminal={terminal_id} status={response.status_code}")
         if response.status_code == 200:
-            return response.json().get('data', [])
+            try:
+                body = response.json()
+            except ValueError:
+                print("[COSTAMAR] respuesta 200 no es JSON")
+                return []
+            data = body.get('data', []) if isinstance(body, dict) else []
+            if not data:
+                keys = list(body.keys())[:12] if isinstance(body, dict) else []
+                error = str(body.get('error') or body.get('message') or '')[:300] if isinstance(body, dict) else ''
+                print(f"[COSTAMAR] sin resultados keys={keys} error={error!r}")
+            else:
+                print(f"[COSTAMAR] resultados={len(data)}")
+            return data
+        print(f"[COSTAMAR] rechazo body={response.text[:500]!r}")
         return []
     except Exception as e:
         print(f"   💥 Error de conexión: {e}")
