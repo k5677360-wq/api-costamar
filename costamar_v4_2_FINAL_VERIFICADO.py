@@ -15,26 +15,17 @@ from datetime import datetime
 # ⚙️ CONFIGURACIÓN
 # ==========================================
 
-TERMINAL_IDS = [
-    "0100140692",  # Condor Travel
-    "0536830376",  # Lima Tours
-]
-
 PROXY = ""
 DELAY_MIN = 1
 DELAY_MAX = 2
 
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Content-Type': 'application/json',
-    'Origin': 'https://booking.clickandbook.com',
-    'Referer': 'https://booking.clickandbook.com/',
-}
+# These values belong to the deployed service configuration, never to Git.
+# The browser continues calling this backend, so operational identifiers are
+# not published with the public frontend bundle.
+SEARCH_URL = "https://flights.costamar.com.pe/search"
 
 # Sesión persistente — AQUÍ, después de HEADERS
 _session = requests.Session()
-_session.headers.update(HEADERS)
 # Nombres de meses en español
 MESES = {
     '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
@@ -104,66 +95,67 @@ def convertir_a_numero(valor):
 # ==========================================
 
 def buscar_vuelos_api(origen, destino, fecha_ida, fecha_vuelta=None, adultos=1, ninos=0, infantes=0):
-    """Llama a la API de Costamar"""
-    
-    # Permite probar una terminal vigente desde Render sin editar el código ni
-    # volver a publicar un identificador operativo. Si no se define, conserva
-    # el comportamiento histórico.
-    terminal_id = os.getenv('COSTAMAR_TERMINAL_ID') or random.choice(TERMINAL_IDS)
-    
+    """Consulta el contrato vigente y lo normaliza al formato de la web."""
+    terminal_id = os.getenv('COSTAMAR_TERMINAL_ID', '').strip()
+    client_id = os.getenv('COSTAMAR_CLIENT_ID', '').strip()
+    if not terminal_id or not client_id:
+        print('[COSTAMAR] faltan COSTAMAR_TERMINAL_ID/COSTAMAR_CLIENT_ID en el servicio')
+        return []
+    routes = [
+        {"departureDateTime": {"value": fecha_ida}, "originLocation": {"locationCode": origen}, "destinationLocation": {"locationCode": destino}}
+    ]
     if fecha_vuelta:
-        flight_type = "RT"
-        itinerary = [
-            {"origin": origen, "destination": destino, "date": fecha_ida},
-            {"origin": destino, "destination": origen, "date": fecha_vuelta}
-        ]
-    else:
-        flight_type = "OW"
-        itinerary = [{"origin": origen, "destination": destino, "date": fecha_ida}]
-    
-    fecha_ida_iso = f"{fecha_ida[:4]}-{fecha_ida[4:6]}-{fecha_ida[6:]}T05:00:00.000Z"
-    fecha_vuelta_iso = f"{fecha_vuelta[:4]}-{fecha_vuelta[4:6]}-{fecha_vuelta[6:]}T05:00:00.000Z" if fecha_vuelta else fecha_ida_iso
-    
+        routes.append({"departureDateTime": {"value": fecha_vuelta}, "originLocation": {"locationCode": destino}, "destinationLocation": {"locationCode": origen}})
+    travelers = [{"airTraveler": {"passengerTypeQuantity": {"code": "ADT", "quantity": adultos}}}]
+    if ninos: travelers.append({"airTraveler": {"passengerTypeQuantity": {"code": "CNN", "quantity": ninos}}})
+    if infantes: travelers.append({"airTraveler": {"passengerTypeQuantity": {"code": "INF", "quantity": infantes}}})
     payload = {
-        "flightType": flight_type,
-        "terminalId": terminal_id,
-        "itinerary": itinerary,
-        "startDate": fecha_ida_iso,
-        "endDate": fecha_vuelta_iso,
-        "passengers": {"adults": adultos, "children": ninos, "infants": infantes},
-        "hasValidationToken": False
+        "pos": {"source": [{"requestorID": {"id": terminal_id, "instance": str(__import__('uuid').uuid4())}}]},
+        "isValidDates": True, "originDestinationInformation": routes,
+        "processingInfo": {"searchType": "RT" if fecha_vuelta else "OW"},
+        "terminalId": terminal_id, "token": "", "travelPreferences": [],
+        "travelerInfoSummary": {"airTravelerAvail": travelers, "priceRequestInformation": None}
     }
-    
+    headers = {
+        'Accept': 'application/json, text/plain, */*', 'Content-Type': 'application/json',
+        'application-name': 'cbplus-app', 'client-id': client_id, 'client-name': 'CBPLUS',
+        'Origin': 'https://flights.costamar.com.pe', 'Referer': 'https://flights.costamar.com.pe/'
+    }
     try:
-        response = _session.post(
-    "https://costamar.com.pe/vuelos/api/flights/search",
-    json=payload,
-    timeout=12
-)
-        
-        # Antes se ocultaba cualquier rechazo o cambio de contrato como una
-        # búsqueda vacía. Conservamos la salida pública, pero dejamos evidencia
-        # acotada en los logs de Render para poder corregir la integración.
-        print(f"[COSTAMAR] terminal={terminal_id} status={response.status_code}")
-        if response.status_code == 200:
-            try:
-                body = response.json()
-            except ValueError:
-                print("[COSTAMAR] respuesta 200 no es JSON")
-                return []
-            data = body.get('data', []) if isinstance(body, dict) else []
-            if not data:
-                keys = list(body.keys())[:12] if isinstance(body, dict) else []
-                error = str(body.get('error') or body.get('message') or '')[:300] if isinstance(body, dict) else ''
-                print(f"[COSTAMAR] sin resultados keys={keys} error={error!r}")
-            else:
-                print(f"[COSTAMAR] resultados={len(data)}")
-            return data
-        print(f"[COSTAMAR] rechazo body={response.text[:500]!r}")
-        return []
+        response = _session.post(SEARCH_URL, json=payload, headers=headers, timeout=20)
+        print(f"[COSTAMAR] status={response.status_code}")
+        if not response.ok:
+            print(f"[COSTAMAR] rechazo body={response.text[:300]!r}")
+            return []
+        body = response.json()
+        items = body.get('pricedItineraries', {}).get('pricedItinerary', [])
+        if not isinstance(items, list): items = [items] if items else []
+        print(f"[COSTAMAR] resultados={len(items)}")
+        return [_normalizar_itinerario_actual(item) for item in items]
     except Exception as e:
-        print(f"   💥 Error de conexión: {e}")
+        print(f"[COSTAMAR] error de conexión: {e}")
         return []
+
+def _normalizar_itinerario_actual(item):
+    opciones = item.get('airItinerary', {}).get('originDestinationOptions', {}).get('originDestinationOption', [])
+    if not isinstance(opciones, list): opciones = [opciones] if opciones else []
+    itinerary = []
+    for opcion in opciones:
+        segmentos = opcion.get('flightSegment', [])
+        if not isinstance(segmentos, list): segmentos = [segmentos] if segmentos else []
+        if not segmentos: continue
+        primero, ultimo = segmentos[0], segmentos[-1]
+        airline = primero.get('marketingAirline') or primero.get('operatingAirline') or {}
+        itinerary.append({'flights': [{
+            'marketingAirline': {'name': airline.get('companyShortName', 'N/A'), 'code': airline.get('code', '')},
+            'flightNumber': primero.get('flightNumber', ''),
+            'departureDateTime': primero.get('departureDateTime', ''), 'arrivalDateTime': ultimo.get('arrivalDateTime', ''),
+            'segments': segmentos
+        }]})
+    fares = item.get('airItineraryPricingInfo', {}).get('itinTotalFare', [])
+    fare = fares[0] if isinstance(fares, list) and fares else {}
+    total = fare.get('totalFare', {})
+    return {'itinerary': itinerary, 'pricing': {'totalAmount': total.get('amount', 0), 'currency': total.get('currencyCode', total.get('currency', 'USD'))}}
 
 
 def extraer_precio(vuelo):
